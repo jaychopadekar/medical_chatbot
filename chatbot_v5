@@ -1,0 +1,132 @@
+import warnings
+import os
+import tkinter as tk
+from tkinter import scrolledtext
+
+import nltk
+import pandas as pd
+from transformers import pipeline
+import language_tool_python
+import re
+import textwrap
+from sumy.parsers.plaintext import PlaintextParser
+from sumy.nlp.tokenizers import Tokenizer
+from sumy.summarizers.lsa import LsaSummarizer
+
+# Suppress warnings
+warnings.filterwarnings("ignore")
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+
+# Download necessary resources for nltk
+nltk.download('stopwords')
+nltk.download('punkt')
+
+# Initialize language tool spell checker
+tool = language_tool_python.LanguageTool('en-US')
+
+# Load the dataset
+df = pd.read_csv(r"C:\Users\Jay\Documents\Sem 5\NLP\Chatbot\Chatbot\cleaned_medical_qa.csv")
+
+# Load the BERT model
+qa_pipeline = pipeline("question-answering", model="bert-base-uncased", tokenizer="bert-base-uncased")
+
+# Initialize stemmer, lemmatizer, and stop words
+stemmer = nltk.stem.PorterStemmer()
+lemmatizer = nltk.stem.WordNetLemmatizer()
+stop_words = set(nltk.corpus.stopwords.words('english'))
+
+# Preprocess question
+def preprocess_question(question):
+    words = nltk.word_tokenize(question.lower())
+    keywords = [stemmer.stem(lemmatizer.lemmatize(word)) for word in words if word.isalpha() and word not in stop_words]
+    return " ".join(keywords)
+
+# Correct spelling mistakes
+def correct_spelling(input_text):
+    matches = tool.check(input_text)
+    return language_tool_python.utils.correct(input_text, matches)
+
+# Summarize an answer using Sumy
+def summarize_answer(answer):
+    try:
+        sentences = re.split(r'(?<=[.!?]) +', answer)
+        first_two_sentences = " ".join(sentences[:2])
+        remaining_text = " ".join(sentences[2:])
+        if remaining_text:
+            parser = PlaintextParser.from_string(remaining_text, Tokenizer("english"))
+            summarizer = LsaSummarizer()
+            summary = summarizer(parser.document, 5)
+            summarized_content = " ".join([str(sentence) for sentence in summary])
+            final_summary = f"{first_two_sentences} {summarized_content}"
+        else:
+            final_summary = first_two_sentences
+        return re.sub(r'[^\w\s\.\,\!\?]', '', final_summary)
+    except Exception as e:
+        return answer
+
+# Format the answer
+def beautify_answer(answer, width=80):
+    return textwrap.fill(answer, width=width)
+
+# Handle user input
+def process_input():
+    user_input = input_box.get()
+    
+    if user_input.lower() in ['bye', 'exit', 'q']:
+        chat_display.insert(tk.END, "\nGoodbye! The session is closed.\n")
+        root.quit()
+
+    corrected_input = correct_spelling(user_input)
+    input_keywords = preprocess_question(corrected_input)
+
+    answer = None
+    source = None
+
+    # Look for an exact match
+    for _, row in df.iterrows():
+        if input_keywords == preprocess_question(row['question']):
+            answer, source = row['answer'], row['source']
+            break
+
+    # If no exact match found
+    if not answer:
+        answer = "Answer not found."
+    else:
+        # If the answer is too long, summarize it
+        if len(answer) > 500:
+            if ask_summarize.get() == 1:
+                answer = summarize_answer(answer)
+
+    # Display user's question, corrected input, and answer
+    display_answer = f"\nYour Question: {user_input}\nCorrected Input: {corrected_input}\nAnswer: {beautify_answer(answer)}"
+    if source:
+        display_answer += f"\nSource: {source}"
+
+    chat_display.insert(tk.END, display_answer + "\n\n")
+    input_box.delete(0, tk.END)
+
+
+
+# Initialize Tkinter window
+root = tk.Tk()
+root.title("Medical Chatbot")
+
+# Create scrollable chat display
+chat_display = scrolledtext.ScrolledText(root, wrap=tk.WORD, width=100, height=30, font=("Arial", 10))
+chat_display.grid(row=0, column=0, columnspan=2)
+
+# User input field
+input_box = tk.Entry(root, width=40, font=("Arial", 14))
+input_box.grid(row=1, column=0)
+
+# Submit button
+submit_button = tk.Button(root, text="Submit", command=process_input)
+submit_button.grid(row=1, column=1)
+
+# Checkbox for summarization option
+ask_summarize = tk.IntVar()
+summarize_check = tk.Checkbutton(root, text="Summarize long answers", variable=ask_summarize)
+summarize_check.grid(row=2, column=0, columnspan=2)
+
+# Run the Tkinter event loop
+root.mainloop()
