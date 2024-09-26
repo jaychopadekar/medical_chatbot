@@ -5,7 +5,6 @@ from tkinter import scrolledtext
 
 import nltk
 import pandas as pd
-from transformers import pipeline
 import language_tool_python
 import re
 import textwrap
@@ -18,17 +17,17 @@ warnings.filterwarnings("ignore")
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 # Download necessary resources for nltk
-nltk.download('stopwords')
-nltk.download('punkt')
+try:
+    nltk.download('stopwords')
+    nltk.download('punkt')
+except Exception as e:
+    print(f"Error downloading NLTK resources: {e}")
 
 # Initialize language tool spell checker
 tool = language_tool_python.LanguageTool('en-US')
 
 # Load the dataset
 df = pd.read_csv(r"C:\Users\Jay\Documents\Sem 5\NLP\Chatbot\Chatbot\cleaned_medical_qa.csv")
-
-# Load the BERT model
-qa_pipeline = pipeline("question-answering", model="bert-base-uncased", tokenizer="bert-base-uncased")
 
 # Initialize stemmer, lemmatizer, and stop words
 stemmer = nltk.stem.PorterStemmer()
@@ -40,6 +39,10 @@ def preprocess_question(question):
     words = nltk.word_tokenize(question.lower())
     keywords = [stemmer.stem(lemmatizer.lemmatize(word)) for word in words if word.isalpha() and word not in stop_words]
     return " ".join(keywords)
+
+# Extract keywords
+def extract_keywords(text):
+    return preprocess_question(text).split()
 
 # Correct spelling mistakes
 def correct_spelling(input_text):
@@ -62,6 +65,7 @@ def summarize_answer(answer):
             final_summary = first_two_sentences
         return re.sub(r'[^\w\s\.\,\!\?]', '', final_summary)
     except Exception as e:
+        print(f"Error summarizing answer: {e}")
         return answer
 
 # Format the answer
@@ -77,39 +81,42 @@ def process_input():
         root.quit()
 
     corrected_input = correct_spelling(user_input)
-    input_keywords = preprocess_question(corrected_input)
+    input_keywords = extract_keywords(corrected_input)
 
-    answer = None
-    source = None
+    answer = ""
+    source = ""
+    max_match_count = 0
 
-    # Look for an exact match
+    # Look for a match based on the highest number of keyword matches
     for _, row in df.iterrows():
-        if input_keywords == preprocess_question(row['question']):
+        row_keywords = extract_keywords(row['question'])
+        match_count = len(set(input_keywords) & set(row_keywords))
+        
+        if match_count > max_match_count:
+            max_match_count = match_count
             answer, source = row['answer'], row['source']
-            break
 
-    # If no exact match found
+    # If no matches found
     if not answer:
         answer = "Answer not found."
     else:
-        # If the answer is too long, summarize it
-        if len(answer) > 500:
-            if ask_summarize.get() == 1:
-                answer = summarize_answer(answer)
+        if len(answer) > 500 and ask_summarize.get() == 1:
+            answer = summarize_answer(answer)
 
     # Display user's question, corrected input, and answer
-    display_answer = f"\nYour Question: {user_input}\nCorrected Input: {corrected_input}\nAnswer: {beautify_answer(answer)}"
+    display_answer = f"\nYour Question: {user_input}\nCorrected Input: {corrected_input}"
+    if answer:
+        display_answer += f"\nAnswer: {beautify_answer(answer)}"
     if source:
         display_answer += f"\nSource: {source}"
 
     chat_display.insert(tk.END, display_answer + "\n\n")
     input_box.delete(0, tk.END)
 
-
-
 # Initialize Tkinter window
 root = tk.Tk()
 root.title("Medical Chatbot")
+root.minsize(800, 600)
 
 # Create scrollable chat display
 chat_display = scrolledtext.ScrolledText(root, wrap=tk.WORD, width=100, height=30, font=("Arial", 10))
