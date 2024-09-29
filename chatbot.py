@@ -15,7 +15,7 @@ import language_tool_python
 summarizer = pipeline("summarization", model="t5-small")
 
 # Load your DataFrame (make sure to adjust the path to your actual CSV file)
-df = pd.read_csv(r"C:\Users\Jay\Documents\Sem 5\NLP\Chatbot\Data\medquad_cleaned.csv")
+df = pd.read_csv(r"path to csv file")
 
 # Initialize stemmer, lemmatizer, and stop words
 stemmer = PorterStemmer()
