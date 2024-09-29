@@ -25,7 +25,7 @@ tool = language_tool_python.LanguageTool('en-US')
 # Load your DataFrame (adjust the path to your actual CSV file)
 @st.cache_data  # Caches the data for better performance
 def load_data():
-    df = pd.read_csv(r"C:\Users\Jay\Documents\Sem 5\NLP\Chatbot\Chatbot\cleaned_medical_qa.csv")
+    df = pd.read_csv(r"path to csv file")
     return df
 
 df = load_data()
