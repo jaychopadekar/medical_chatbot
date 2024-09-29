@@ -2,7 +2,7 @@ import warnings
 import os
 import tkinter as tk
 from tkinter import scrolledtext
-
+import datetime
 import nltk
 import pandas as pd
 import language_tool_python
@@ -27,7 +27,7 @@ except Exception as e:
 tool = language_tool_python.LanguageTool('en-US')
 
 # Load the dataset
-df = pd.read_csv(r"C:\Users\Jay\Documents\Sem 5\NLP\Chatbot\Chatbot\cleaned_medical_qa.csv")
+df = pd.read_csv(r"C:\Users\Jay\Documents\Sem 5\NLP\Chatbot\Chatbot\cleaned_medical_qa1.csv")
 
 # Initialize stemmer, lemmatizer, and stop words
 stemmer = nltk.stem.PorterStemmer()
@@ -53,16 +53,16 @@ def correct_spelling(input_text):
 def summarize_answer(answer):
     try:
         sentences = re.split(r'(?<=[.!?]) +', answer)
-        first_two_sentences = " ".join(sentences[:2])
-        remaining_text = " ".join(sentences[2:])
+        first_three_sentences = " ".join(sentences[:3])
+        remaining_text = " ".join(sentences[3:])
         if remaining_text:
             parser = PlaintextParser.from_string(remaining_text, Tokenizer("english"))
             summarizer = LsaSummarizer()
             summary = summarizer(parser.document, 5)
             summarized_content = " ".join([str(sentence) for sentence in summary])
-            final_summary = f"{first_two_sentences} {summarized_content}"
+            final_summary = f"{first_three_sentences} {summarized_content}"
         else:
-            final_summary = first_two_sentences
+            final_summary = first_three_sentences
         return re.sub(r'[^\w\s\.\,\!\?]', '', final_summary)
     except Exception as e:
         print(f"Error summarizing answer: {e}")
@@ -72,7 +72,25 @@ def summarize_answer(answer):
 def beautify_answer(answer, width=80):
     return textwrap.fill(answer, width=width)
 
-# Handle user input
+# Group rows by 'focus_area' and create a dictionary
+focus_area_dict = {}
+
+# Create dictionary mapping 'focus_area' to corresponding rows in the dataframe
+for _, row in df.iterrows():
+    focus_area = row['focus_area']
+    if focus_area not in focus_area_dict:
+        focus_area_dict[focus_area] = []
+    focus_area_dict[focus_area].append(row)
+
+# Log unanswered questions
+def log_unanswered_question(question):
+    log_file_path = r"C:\Users\Jay\Desktop\chatbot_log.txt" 
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    with open(log_file_path, 'a') as log_file:
+        log_file.write(f"[{timestamp}] {question}\n")
+    print(f"Logged unanswered question: {question}")
+
+# Modify process_input to log unanswered questions
 def process_input():
     user_input = input_box.get()
     
@@ -83,35 +101,54 @@ def process_input():
     corrected_input = correct_spelling(user_input)
     input_keywords = extract_keywords(corrected_input)
 
-    answer = ""
-    source = ""
+    focus_area_match = None
     max_match_count = 0
 
-    # Look for a match based on the highest number of keyword matches
-    for _, row in df.iterrows():
-        row_keywords = extract_keywords(row['question'])
-        match_count = len(set(input_keywords) & set(row_keywords))
-        
+    # Step 2: Identify the relevant focus area based on keywords
+    for focus_area in focus_area_dict:
+        focus_area_keywords = extract_keywords(focus_area)
+        match_count = len(set(input_keywords) & set(focus_area_keywords))
+
         if match_count > max_match_count:
             max_match_count = match_count
-            answer, source = row['answer'], row['source']
+            focus_area_match = focus_area
 
-    # If no matches found
-    if not answer:
-        answer = "Answer not found."
+    # Step 3: If a relevant focus area is found, search within its rows
+    if focus_area_match:
+        answer = ""
+        source = ""
+        max_match_count = 0
+
+        for row in focus_area_dict[focus_area_match]:
+            row_keywords = extract_keywords(row['question'])
+            match_count = len(set(input_keywords) & set(row_keywords))
+
+            if match_count > max_match_count:
+                max_match_count = match_count
+                answer, source = row['answer'], row['source']
+
+        if not answer:
+            answer = "Sorry, I do not have the answer to your question."
+            log_unanswered_question(user_input)  # Log unanswered question
+        else:
+            if len(answer) > 500 and ask_summarize.get() == 1:
+                answer = summarize_answer(answer)
+
+        # Display the result
+        display_answer = f"\nYour Question: {user_input}\nCorrected Input: {corrected_input}"
+        if answer:
+            display_answer += f"\nAnswer: {beautify_answer(answer)}"
+        if source:
+            display_answer += f"\nSource: {source}"
+
+        chat_display.insert(tk.END, display_answer + "\n\n")
     else:
-        if len(answer) > 500 and ask_summarize.get() == 1:
-            answer = summarize_answer(answer)
-
-    # Display user's question, corrected input, and answer
-    display_answer = f"\nYour Question: {user_input}\nCorrected Input: {corrected_input}"
-    if answer:
-        display_answer += f"\nAnswer: {beautify_answer(answer)}"
-    if source:
-        display_answer += f"\nSource: {source}"
-
-    chat_display.insert(tk.END, display_answer + "\n\n")
+        display_answer = f"\nYour Question: {user_input}\nSorry, I do not have the answer to your question."
+        chat_display.insert(tk.END, display_answer + "\n")
+        log_unanswered_question(user_input)
+    
     input_box.delete(0, tk.END)
+
 
 # Initialize Tkinter window
 root = tk.Tk()
