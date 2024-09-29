@@ -21,7 +21,7 @@ from sumy.summarizers.lsa import LsaSummarizer  # You can choose different summa
 tool = language_tool_python.LanguageTool('en-US')
 
 # Load your DataFrame (adjust the path to your actual CSV file)
-df = pd.read_csv(r"C:\Users\Jay\Documents\Sem 5\NLP\Chatbot\Chatbot\cleaned_medical_qa.csv")
+df = pd.read_csv(r"path to csv file")
 
 # Initialize stemmer, lemmatizer, and stop words
 stemmer = PorterStemmer()
