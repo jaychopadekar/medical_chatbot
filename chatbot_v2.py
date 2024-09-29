@@ -26,7 +26,7 @@ model = TFT5ForConditionalGeneration.from_pretrained("t5-small")
 summarizer = pipeline("summarization", model=model, tokenizer=tokenizer, framework="tf")
 
 # Load your DataFrame (adjust the path to your actual CSV file)
-df = pd.read_csv(r"C:\Users\Jay\Documents\Sem 5\NLP\Chatbot\Chatbot\cleaned_medical_qa.csv")
+df = pd.read_csv(r"path to csv file")
 
 # Initialize stemmer, lemmatizer, and stop words
 stemmer = PorterStemmer()
