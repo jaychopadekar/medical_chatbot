@@ -27,7 +27,7 @@ except Exception as e:
 tool = language_tool_python.LanguageTool('en-US')
 
 # Load the dataset
-df = pd.read_csv(r"C:\Users\Jay\Documents\Sem 5\NLP\Chatbot\Chatbot\cleaned_medical_qa1.csv")
+df = pd.read_csv(r'path to dataset)
 
 # Initialize stemmer, lemmatizer, and stop words
 stemmer = nltk.stem.PorterStemmer()
@@ -84,7 +84,7 @@ for _, row in df.iterrows():
 
 # Log unanswered questions
 def log_unanswered_question(question):
-    log_file_path = r"C:\Users\Jay\Desktop\chatbot_log.txt" 
+    log_file_path = r"path to txt file" 
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     with open(log_file_path, 'a') as log_file:
         log_file.write(f"[{timestamp}] {question}\n")
