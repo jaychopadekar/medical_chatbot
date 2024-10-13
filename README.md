@@ -1,8 +1,6 @@
 # medical_chatbot
 Python based Chatbot that can answer questions related to medical conditions.
-
-Currently the Chatbot is still under development.
-
+(Use the latest V5)
 
 For any Queries/Suggestions,
 Email: chopadekarjay@gmail.com
